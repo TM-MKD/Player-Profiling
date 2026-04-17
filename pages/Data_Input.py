@@ -13,19 +13,17 @@ else:
     df = pd.DataFrame(columns=[
         "Player",
         "Date",
-        "Category",
-        "Score",
+        "Profiling Scores",
         "Comment"
     ])
 
 with st.form("entry_form"):
     player = st.text_input("Player Name")
     date = st.date_input("Date")
-    category = st.selectbox(
-        "Category",
-        ["Technical", "Physical", "Competence", "Potential"]
-    )
-    score = st.slider("Score", 0, 10)
+    profiling_scores = st.slider("Technical", 0, 10),
+    st.slider("Physical", 0, 10),
+    st.slider("Competence", 0, 10),
+    st.slider("Potential", 0, 10)
     comment = st.text_area("Action Points")
 
     submit = st.form_submit_button("Save Entry")
@@ -34,8 +32,7 @@ if submit:
     new_row = pd.DataFrame([{
         "Player": player,
         "Date": date,
-        "Category": category,
-        "Score": score,
+        "Profiling Scores": profiling_scores,
         "Comment": comment
     }])
 
