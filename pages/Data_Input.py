@@ -31,10 +31,10 @@ with st.form("entry_form"):
     player = st.text_input("Player Name")
     date = st.date_input("Date")
 
-    technical = st.select_slider("Technical", options=SCORE_OPTIONS, value=5)
-    physical = st.select_slider("Physical", options=SCORE_OPTIONS, value=5)
-    competence = st.select_slider("Competence", options=SCORE_OPTIONS, value=5)
-    potential = st.select_slider("Potential", options=SCORE_OPTIONS, value=5)
+    technical = st.select_slider("Technical", options=SCORE_OPTIONS, value=0)
+    physical = st.select_slider("Physical", options=SCORE_OPTIONS, value=0)
+    competence = st.select_slider("Competence", options=SCORE_OPTIONS, value=0)
+    potential = st.select_slider("Potential", options=SCORE_OPTIONS, value=0)
 
     comment = st.text_area("Action Points")
     submit = st.form_submit_button("Save Entry")
