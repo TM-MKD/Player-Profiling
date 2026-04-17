@@ -11,7 +11,7 @@ if os.path.exists(FILE_PATH):
     df = pd.read_csv(FILE_PATH)
 else:
     df = pd.DataFrame(columns=[
-        "Coach",
+        "Player",
         "Date",
         "Category",
         "Score",
@@ -19,20 +19,20 @@ else:
     ])
 
 with st.form("entry_form"):
-    coach = st.text_input("Coach Name")
+    player = st.text_input("Player Name")
     date = st.date_input("Date")
     category = st.selectbox(
         "Category",
-        ["Understanding Self", "Coaching Individuals", "Session Design"]
+        ["Technical", "Physical", "Competence", "Potential"]
     )
-    score = st.slider("Score", 1, 5)
-    comment = st.text_area("Comment")
+    score = st.slider("Score", 0, 10)
+    comment = st.text_area("Action Points")
 
     submit = st.form_submit_button("Save Entry")
 
 if submit:
     new_row = pd.DataFrame([{
-        "Coach": coach,
+        "Player": player,
         "Date": date,
         "Category": category,
         "Score": score,
@@ -40,6 +40,8 @@ if submit:
     }])
 
     df = pd.concat([df, new_row], ignore_index=True)
+    
+    os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
     df.to_csv(FILE_PATH, index=False)
 
     st.success("Entry saved")
