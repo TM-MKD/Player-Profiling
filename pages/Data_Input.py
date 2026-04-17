@@ -11,6 +11,7 @@ if os.path.exists(FILE_PATH):
     df = pd.read_csv(FILE_PATH)
 else:
     df = pd.DataFrame(columns=[
+        "Age Group",
         "Player",
         "Date",
         "Profiling Scores",
@@ -18,6 +19,10 @@ else:
     ])
 
 with st.form("entry_form"):
+    age_group = st.selectbox(
+        "Age Group",
+        ["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"]
+    )
     player = st.text_input("Player Name")
     date = st.date_input("Date")
     profiling_scores = st.slider("Technical", 0, 10),
