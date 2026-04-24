@@ -1,7 +1,6 @@
 import os
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 
 FILE_PATH = "data/records.csv"
@@ -53,12 +52,10 @@ avg_scores = (
     .sort_values(selected_metric, ascending=False)
 )
 
-fig = px.bar(
-    avg_scores,
-    x="Player",
-    y=selected_metric,
-    color="Player",
-    title=f"Average {selected_metric} by Player",
-)
-fig.update_layout(showlegend=False, yaxis_range=[0, 10])
-st.plotly_chart(fig, use_container_width=True)
+st.subheader(f"Average {selected_metric} by Player")
+if avg_scores.empty:
+    st.info("No data available for the selected filters.")
+else:
+    chart_df = avg_scores.set_index("Player")
+    st.bar_chart(chart_df[selected_metric], use_container_width=True)
+
