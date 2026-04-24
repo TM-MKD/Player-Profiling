@@ -71,3 +71,4 @@ else:
     if "Date" in display_df.columns:
         display_df["Date"] = pd.to_datetime(display_df["Date"], errors="coerce").dt.date
     st.dataframe(display_df, use_container_width=True)
+    
