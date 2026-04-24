@@ -1,20 +1,64 @@
-import streamlit as st
+import os
+
 import pandas as pd
 import plotly.express as px
+import streamlit as st
 
-df = pd.read_csv("data/dataset.csv")
+FILE_PATH = "data/records.csv"
 
 st.title("Dashboard")
 
-department_filter = st.multiselect(
-    "Filter by Department",
-    df["Department"].unique(),
-    default=df["Department"].unique()
+if not os.path.exists(FILE_PATH):
+    st.info("No data found yet. Save entries in the Data Entry page to populate the dashboard.")
+    st.stop()
+
+df = pd.read_csv(FILE_PATH)
+
+if df.empty:
+    st.info("No records available yet. Add data in the Data Entry page.")
+    st.stop()
+
+if "Date" in df.columns:
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
+age_groups = sorted(df["Age Group"].dropna().unique().tolist())
+selected_age_groups = st.multiselect(
+    "Filter by Age Group",
+    age_groups,
+    default=age_groups,
 )
 
-filtered_df = df[df["Department"].isin(department_filter)]
+players = sorted(df["Player"].dropna().unique().tolist())
+selected_players = st.multiselect(
+    "Filter by Player",
+    players,
+    default=players,
+)
 
-st.dataframe(filtered_df)
+filtered_df = df[
+    df["Age Group"].isin(selected_age_groups)
+    & df["Player"].isin(selected_players)
+]
 
-fig = px.histogram(filtered_df, x="Department")
+st.subheader("Filtered Records")
+st.dataframe(filtered_df, use_container_width=True)
+
+metric_options = ["Technical", "Physical", "Competence", "Potential"]
+selected_metric = st.selectbox("Metric", metric_options)
+
+avg_scores = (
+    filtered_df.groupby("Player", dropna=False)[selected_metric]
+    .mean()
+    .reset_index()
+    .sort_values(selected_metric, ascending=False)
+)
+
+fig = px.bar(
+    avg_scores,
+    x="Player",
+    y=selected_metric,
+    color="Player",
+    title=f"Average {selected_metric} by Player",
+)
+fig.update_layout(showlegend=False, yaxis_range=[0, 10])
 st.plotly_chart(fig, use_container_width=True)
