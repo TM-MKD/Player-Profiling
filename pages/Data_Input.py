@@ -5,6 +5,16 @@ import streamlit as st
 
 FILE_PATH = "data/records.csv"
 SCORE_OPTIONS = list(range(0, 11))
+COLUMNS = [
+    "Age Group",
+    "Player",
+    "Date",
+    "Technical",
+    "Physical",
+    "Competence",
+    "Potential",
+    "Comment",
+]
 
 st.title("Manual Data Entry")
 
@@ -12,16 +22,7 @@ st.title("Manual Data Entry")
 if os.path.exists(FILE_PATH):
     df = pd.read_csv(FILE_PATH)
 else:
-    df = pd.DataFrame(columns=[
-        "Age Group",
-        "Player",
-        "Date",
-        "Technical",
-        "Physical",
-        "Competence",
-        "Potential",
-        "Comment",
-    ])
+    df = pd.DataFrame(columns=COLUMNS)
 
 with st.form("entry_form"):
     age_group = st.selectbox(
@@ -40,18 +41,20 @@ with st.form("entry_form"):
     submit = st.form_submit_button("Save Entry")
 
 if submit:
-    new_row = pd.DataFrame([
-        {
-            "Age Group": age_group,
-            "Player": player,
-            "Date": date,
-            "Technical": technical,
-            "Physical": physical,
-            "Competence": competence,
-            "Potential": potential,
-            "Comment": comment,
-        }
-    ])
+    new_row = pd.DataFrame(
+        [
+            {
+                "Age Group": age_group,
+                "Player": player,
+                "Date": date,
+                "Technical": technical,
+                "Physical": physical,
+                "Competence": competence,
+                "Potential": potential,
+                "Comment": comment,
+            }
+        ]
+    )
 
     df = pd.concat([df, new_row], ignore_index=True)
 
@@ -59,3 +62,12 @@ if submit:
     df.to_csv(FILE_PATH, index=False)
 
     st.success("Entry saved")
+
+st.subheader("Raw Saved Data")
+if df.empty:
+    st.info("No entries saved yet.")
+else:
+    display_df = df.copy()
+    if "Date" in display_df.columns:
+        display_df["Date"] = pd.to_datetime(display_df["Date"], errors="coerce").dt.date
+    st.dataframe(display_df, use_container_width=True)
