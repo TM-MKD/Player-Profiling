@@ -67,8 +67,32 @@ st.subheader("Raw Saved Data")
 if df.empty:
     st.info("No entries saved yet.")
 else:
-    display_df = df.copy()
-    if "Date" in display_df.columns:
-        display_df["Date"] = pd.to_datetime(display_df["Date"], errors="coerce").dt.date
-    st.dataframe(display_df, use_container_width=True)
-    
+    editable_df = df.copy()
+    if "Date" in editable_df.columns:
+        editable_df["Date"] = pd.to_datetime(editable_df["Date"], errors="coerce").dt.date
+
+    edited_df = st.data_editor(
+        editable_df,
+        use_container_width=True,
+        num_rows="dynamic",
+        column_config={
+            "Age Group": st.column_config.SelectboxColumn(
+                "Age Group",
+                options=["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"],
+            ),
+            "Technical": st.column_config.SelectboxColumn("Technical", options=SCORE_OPTIONS),
+            "Physical": st.column_config.SelectboxColumn("Physical", options=SCORE_OPTIONS),
+            "Competence": st.column_config.SelectboxColumn("Competence", options=SCORE_OPTIONS),
+            "Potential": st.column_config.SelectboxColumn("Potential", options=SCORE_OPTIONS),
+        },
+        key="raw_data_editor",
+    )
+
+    if st.button("Save Table Changes"):
+        if "Date" in edited_df.columns:
+            edited_df["Date"] = pd.to_datetime(edited_df["Date"], errors="coerce").dt.date
+
+        edited_df = edited_df.reindex(columns=COLUMNS)
+        os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
+        edited_df.to_csv(FILE_PATH, index=False)
+        st.success("Raw saved data updated")
