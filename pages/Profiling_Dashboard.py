@@ -4,8 +4,17 @@ import pandas as pd
 import streamlit as st
 from supabase import create_client
 
-SUPABASE_URL = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
+def get_secret_or_env(key: str) -> str | None:
+    """Read from Streamlit secrets first, then environment variables."""
+    try:
+        value = st.secrets.get(key)
+    except Exception:
+        value = None
+
+    return value or os.getenv(key)
+
+SUPABASE_URL = get_secret_or_env("SUPABASE_URL")
+SUPABASE_KEY = get_secret_or_env("SUPABASE_KEY")
 
 st.title("Dashboard")
 
@@ -22,8 +31,12 @@ try:
     df = pd.DataFrame(response.data)
 except Exception as exc:
     st.error(f"Could not load data from Supabase table 'player_records': {exc}")
+    st.info(
+        "Double-check that the 'player_records' table exists and that your key "
+        "has permission to read it (RLS policies may block access)."
+    )
     st.stop()
-
+    
 if df.empty:
     st.info("No records available yet. Add data in the Data Entry page.")
     st.stop()
