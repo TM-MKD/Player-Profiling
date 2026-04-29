@@ -2,20 +2,42 @@ import os
 
 import pandas as pd
 import streamlit as st
+from supabase import create_client
 
-FILE_PATH = "data/records.csv"
+SUPABASE_URL = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
 
 st.title("Dashboard")
 
-if not os.path.exists(FILE_PATH):
-    st.info("No data found yet. Save entries in the Data Entry page to populate the dashboard.")
+if not SUPABASE_URL or not SUPABASE_KEY:
+    st.error(
+        "Supabase credentials are missing. Add SUPABASE_URL and SUPABASE_KEY in "
+        ".streamlit/secrets.toml or as environment variables."
+    )
     st.stop()
 
-df = pd.read_csv(FILE_PATH)
+try:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    response = supabase.table("player_records").select("*").execute()
+    df = pd.DataFrame(response.data)
+except Exception as exc:
+    st.error(f"Could not load data from Supabase table 'player_records': {exc}")
+    st.stop()
 
 if df.empty:
     st.info("No records available yet. Add data in the Data Entry page.")
     st.stop()
+
+df = df.rename(columns={
+    "age_group": "Age Group",
+    "player": "Player",
+    "date": "Date",
+    "technical": "Technical",
+    "physical": "Physical",
+    "competence": "Competence",
+    "potential": "Potential",
+    "comment": "Comment",
+})
 
 if "Date" in df.columns:
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
@@ -58,4 +80,3 @@ if avg_scores.empty:
 else:
     chart_df = avg_scores.set_index("Player")
     st.bar_chart(chart_df[selected_metric], use_container_width=True)
-
