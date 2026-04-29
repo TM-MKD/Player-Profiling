@@ -2,17 +2,10 @@ import os
 
 import pandas as pd
 import streamlit as st
-from supabase import create_client
 
-# -------------------------
-# CONFIG
-# -------------------------
+FILE_PATH = "data/records.csv"
 SCORE_OPTIONS = list(range(0, 11))
-
-AGE_GROUPS = ["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"]
-
-DISPLAY_COLUMNS = [
-    "id",
+COLUMNS = [
     "Age Group",
     "Player",
     "Date",
@@ -23,79 +16,19 @@ DISPLAY_COLUMNS = [
     "Comment",
 ]
 
-# -------------------------
-# SUPABASE CONNECTION
-# -------------------------
-def get_secret_or_env(key: str) -> str | None:
-    """Read from Streamlit secrets first, then environment variables.
-
-    Accessing st.secrets can raise when no secrets file exists, so we handle
-    that and fall back to os.environ.
-    """
-    try:
-        value = st.secrets.get(key)
-    except Exception:
-        value = None
-
-    return value or os.getenv(key)
-
-
-SUPABASE_URL = get_secret_or_env("SUPABASE_URL")
-SUPABASE_KEY = get_secret_or_env("SUPABASE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error(
-        "Supabase credentials are missing. Add SUPABASE_URL and SUPABASE_KEY in "
-        ".streamlit/secrets.toml or as environment variables."
-    )
-    st.stop()
-
-try:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as exc:
-    st.error(f"Failed to initialize Supabase client: {exc}")
-    st.stop()
-    
-# -------------------------
-# PAGE TITLE
-# -------------------------
 st.title("Manual Data Entry")
 
-# -------------------------
-# LOAD DATA FROM SUPABASE
-# -------------------------
-try:
-    response = supabase.table("player_records").select("*").execute()
-    data = response.data
-except Exception as exc:
-    st.error(f"Could not read from Supabase table 'player_records': {exc}")
-    st.info(
-        "Double-check that the 'player_records' table exists and that your key "
-        "has permission to read it (RLS policies may block access)."
-    )
-    st.stop()
+# Load data
+if os.path.exists(FILE_PATH):
+    df = pd.read_csv(FILE_PATH)
+else:
+    df = pd.DataFrame(columns=COLUMNS)
 
-df = pd.DataFrame(data)
-
-if not df.empty:
-    df = df.rename(columns={
-        "age_group": "Age Group",
-        "player": "Player",
-        "date": "Date",
-        "technical": "Technical",
-        "physical": "Physical",
-        "competence": "Competence",
-        "potential": "Potential",
-        "comment": "Comment",
-    })
-
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
-
-# -------------------------
-# ENTRY FORM
-# -------------------------
 with st.form("entry_form"):
-    age_group = st.selectbox("Age Group", AGE_GROUPS)
+    age_group = st.selectbox(
+        "Age Group",
+        ["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"],
+    )
     player = st.text_input("Player Name")
     date = st.date_input("Date")
 
@@ -105,47 +38,48 @@ with st.form("entry_form"):
     potential = st.select_slider("Potential", options=SCORE_OPTIONS, value=0)
 
     comment = st.text_area("Action Points")
-
     submit = st.form_submit_button("Save Entry")
 
-# -------------------------
-# SAVE NEW ENTRY
-# -------------------------
 if submit:
-    new_row = {
-        "age_group": age_group,
-        "player": player,
-        "date": str(date),
-        "technical": technical,
-        "physical": physical,
-        "competence": competence,
-        "potential": potential,
-        "comment": comment,
-    }
+    new_row = pd.DataFrame(
+        [
+            {
+                "Age Group": age_group,
+                "Player": player,
+                "Date": date,
+                "Technical": technical,
+                "Physical": physical,
+                "Competence": competence,
+                "Potential": potential,
+                "Comment": comment,
+            }
+        ]
+    )
 
-    try:
-        supabase.table("player_records").insert(new_row).execute()
-    except Exception as exc:
-        st.error(f"Failed to save entry to Supabase: {exc}")
-        st.stop()
+    df = pd.concat([df, new_row], ignore_index=True)
+
+    os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
+    df.to_csv(FILE_PATH, index=False)
 
     st.success("Entry saved")
-    st.rerun()  # refresh data instantly
 
-# -------------------------
-# DISPLAY + EDIT DATA
-# -------------------------
 st.subheader("Raw Saved Data")
-
 if df.empty:
     st.info("No entries saved yet.")
 else:
+    editable_df = df.copy()
+    if "Date" in editable_df.columns:
+        editable_df["Date"] = pd.to_datetime(editable_df["Date"], errors="coerce").dt.date
+
     edited_df = st.data_editor(
-        df[DISPLAY_COLUMNS],
+        editable_df,
         use_container_width=True,
         num_rows="dynamic",
         column_config={
-            "Age Group": st.column_config.SelectboxColumn("Age Group", options=AGE_GROUPS),
+            "Age Group": st.column_config.SelectboxColumn(
+                "Age Group",
+                options=["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"],
+            ),
             "Technical": st.column_config.SelectboxColumn("Technical", options=SCORE_OPTIONS),
             "Physical": st.column_config.SelectboxColumn("Physical", options=SCORE_OPTIONS),
             "Competence": st.column_config.SelectboxColumn("Competence", options=SCORE_OPTIONS),
@@ -154,25 +88,11 @@ else:
         key="raw_data_editor",
     )
 
-    # -------------------------
-    # SAVE EDITED DATA
-    # -------------------------
     if st.button("Save Table Changes"):
-        for _, row in edited_df.iterrows():
-            try:
-                supabase.table("player_records").update({
-                    "age_group": row["Age Group"],
-                    "player": row["Player"],
-                    "date": str(row["Date"]),
-                    "technical": int(row["Technical"]),
-                    "physical": int(row["Physical"]),
-                    "competence": int(row["Competence"]),
-                    "potential": int(row["Potential"]),
-                    "comment": row["Comment"],
-                }).eq("id", int(row["id"])).execute()
-            except Exception as exc:
-                st.error(f"Failed to update row id={int(row['id'])}: {exc}")
-                st.stop()
+        if "Date" in edited_df.columns:
+            edited_df["Date"] = pd.to_datetime(edited_df["Date"], errors="coerce").dt.date
 
-        st.success("Data updated")
-        st.rerun()
+        edited_df = edited_df.reindex(columns=COLUMNS)
+        os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
+        edited_df.to_csv(FILE_PATH, index=False)
+        st.success("Raw saved data updated")
