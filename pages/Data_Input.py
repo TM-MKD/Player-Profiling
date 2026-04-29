@@ -68,6 +68,7 @@ if submit:
 st.subheader("Raw Saved Data")
 if df.empty:
     st.info("No entries saved yet.")
+    editable_df = df.copy()
 else:
     edited_df = st.data_editor(
         editable_df,
