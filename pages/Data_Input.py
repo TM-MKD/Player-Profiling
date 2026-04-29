@@ -26,10 +26,21 @@ DISPLAY_COLUMNS = [
 # -------------------------
 # SUPABASE CONNECTION
 # -------------------------
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+SUPABASE_URL = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+if not SUPABASE_URL or not SUPABASE_KEY:
+    st.error(
+        "Supabase credentials are missing. Add SUPABASE_URL and SUPABASE_KEY in "
+        ".streamlit/secrets.toml or as environment variables."
+    )
+    st.stop()
+
+try:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as exc:
+    st.error(f"Failed to initialize Supabase client: {exc}")
+    st.stop()
 
 # -------------------------
 # PAGE TITLE
@@ -39,8 +50,12 @@ st.title("Manual Data Entry")
 # -------------------------
 # LOAD DATA FROM SUPABASE
 # -------------------------
-response = supabase.table("player_records").select("*").execute()
-data = response.data
+try:
+    response = supabase.table("player_records").select("*").execute()
+    data = response.data
+except Exception as exc:
+    st.error(f"Could not read from Supabase table 'player_records': {exc}")
+    st.stop()
 
 df = pd.DataFrame(data)
 
@@ -90,7 +105,11 @@ if submit:
         "comment": comment,
     }
 
-    supabase.table("player_records").insert(new_row).execute()
+    try:
+        supabase.table("player_records").insert(new_row).execute()
+    except Exception as exc:
+        st.error(f"Failed to save entry to Supabase: {exc}")
+        st.stop()
 
     st.success("Entry saved")
     st.rerun()  # refresh data instantly
@@ -122,17 +141,20 @@ else:
     # -------------------------
     if st.button("Save Table Changes"):
         for _, row in edited_df.iterrows():
-            supabase.table("player_records").update({
-                "age_group": row["Age Group"],
-                "player": row["Player"],
-                "date": str(row["Date"]),
-                "technical": int(row["Technical"]),
-                "physical": int(row["Physical"]),
-                "competence": int(row["Competence"]),
-                "potential": int(row["Potential"]),
-                "comment": row["Comment"],
-            }).eq("id", int(row["id"])).execute()
+            try:
+                supabase.table("player_records").update({
+                    "age_group": row["Age Group"],
+                    "player": row["Player"],
+                    "date": str(row["Date"]),
+                    "technical": int(row["Technical"]),
+                    "physical": int(row["Physical"]),
+                    "competence": int(row["Competence"]),
+                    "potential": int(row["Potential"]),
+                    "comment": row["Comment"],
+                }).eq("id", int(row["id"])).execute()
+            except Exception as exc:
+                st.error(f"Failed to update row id={int(row['id'])}: {exc}")
+                st.stop()
 
         st.success("Data updated")
         st.rerun()
-
