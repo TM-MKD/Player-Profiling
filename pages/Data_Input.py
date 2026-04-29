@@ -26,8 +26,22 @@ DISPLAY_COLUMNS = [
 # -------------------------
 # SUPABASE CONNECTION
 # -------------------------
-SUPABASE_URL = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
+def get_secret_or_env(key: str) -> str | None:
+    """Read from Streamlit secrets first, then environment variables.
+
+    Accessing st.secrets can raise when no secrets file exists, so we handle
+    that and fall back to os.environ.
+    """
+    try:
+        value = st.secrets.get(key)
+    except Exception:
+        value = None
+
+    return value or os.getenv(key)
+
+
+SUPABASE_URL = get_secret_or_env("SUPABASE_URL")
+SUPABASE_KEY = get_secret_or_env("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error(
@@ -41,7 +55,7 @@ try:
 except Exception as exc:
     st.error(f"Failed to initialize Supabase client: {exc}")
     st.stop()
-
+    
 # -------------------------
 # PAGE TITLE
 # -------------------------
@@ -55,6 +69,10 @@ try:
     data = response.data
 except Exception as exc:
     st.error(f"Could not read from Supabase table 'player_records': {exc}")
+    st.info(
+        "Double-check that the 'player_records' table exists and that your key "
+        "has permission to read it (RLS policies may block access)."
+    )
     st.stop()
 
 df = pd.DataFrame(data)
