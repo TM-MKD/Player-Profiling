@@ -2,55 +2,20 @@ import os
 
 import pandas as pd
 import streamlit as st
-from supabase import create_client
 
-def get_secret_or_env(key: str) -> str | None:
-    """Read from Streamlit secrets first, then environment variables."""
-    try:
-        value = st.secrets.get(key)
-    except Exception:
-        value = None
-
-    return value or os.getenv(key)
-
-SUPABASE_URL = get_secret_or_env("SUPABASE_URL")
-SUPABASE_KEY = get_secret_or_env("SUPABASE_KEY")
+FILE_PATH = "data/records.csv"
 
 st.title("Dashboard")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error(
-        "Supabase credentials are missing. Add SUPABASE_URL and SUPABASE_KEY in "
-        ".streamlit/secrets.toml or as environment variables."
-    )
+if not os.path.exists(FILE_PATH):
+    st.info("No data found yet. Save entries in the Data Entry page to populate the dashboard.")
     st.stop()
 
-try:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    response = supabase.table("player_records").select("*").execute()
-    df = pd.DataFrame(response.data)
-except Exception as exc:
-    st.error(f"Could not load data from Supabase table 'player_records': {exc}")
-    st.info(
-        "Double-check that the 'player_records' table exists and that your key "
-        "has permission to read it (RLS policies may block access)."
-    )
-    st.stop()
-    
+df = pd.read_csv(FILE_PATH)
+
 if df.empty:
     st.info("No records available yet. Add data in the Data Entry page.")
     st.stop()
-
-df = df.rename(columns={
-    "age_group": "Age Group",
-    "player": "Player",
-    "date": "Date",
-    "technical": "Technical",
-    "physical": "Physical",
-    "competence": "Competence",
-    "potential": "Potential",
-    "comment": "Comment",
-})
 
 if "Date" in df.columns:
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
