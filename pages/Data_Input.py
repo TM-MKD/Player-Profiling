@@ -2,10 +2,17 @@ import os
 
 import pandas as pd
 import streamlit as st
+from supabase import create_client
 
-FILE_PATH = "data/records.csv"
+# -------------------------
+# CONFIG
+# -------------------------
 SCORE_OPTIONS = list(range(0, 11))
-COLUMNS = [
+
+AGE_GROUPS = ["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"]
+
+DISPLAY_COLUMNS = [
+    "id",
     "Age Group",
     "Player",
     "Date",
@@ -16,19 +23,46 @@ COLUMNS = [
     "Comment",
 ]
 
+# -------------------------
+# SUPABASE CONNECTION
+# -------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# -------------------------
+# PAGE TITLE
+# -------------------------
 st.title("Manual Data Entry")
 
-# Load data
-if os.path.exists(FILE_PATH):
-    df = pd.read_csv(FILE_PATH)
-else:
-    df = pd.DataFrame(columns=COLUMNS)
+# -------------------------
+# LOAD DATA FROM SUPABASE
+# -------------------------
+response = supabase.table("player_records").select("*").execute()
+data = response.data
 
+df = pd.DataFrame(data)
+
+if not df.empty:
+    df = df.rename(columns={
+        "age_group": "Age Group",
+        "player": "Player",
+        "date": "Date",
+        "technical": "Technical",
+        "physical": "Physical",
+        "competence": "Competence",
+        "potential": "Potential",
+        "comment": "Comment",
+    })
+
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
+
+# -------------------------
+# ENTRY FORM
+# -------------------------
 with st.form("entry_form"):
-    age_group = st.selectbox(
-        "Age Group",
-        ["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"],
-    )
+    age_group = st.selectbox("Age Group", AGE_GROUPS)
     player = st.text_input("Player Name")
     date = st.date_input("Date")
 
@@ -38,48 +72,43 @@ with st.form("entry_form"):
     potential = st.select_slider("Potential", options=SCORE_OPTIONS, value=0)
 
     comment = st.text_area("Action Points")
+
     submit = st.form_submit_button("Save Entry")
 
+# -------------------------
+# SAVE NEW ENTRY
+# -------------------------
 if submit:
-    new_row = pd.DataFrame(
-        [
-            {
-                "Age Group": age_group,
-                "Player": player,
-                "Date": date,
-                "Technical": technical,
-                "Physical": physical,
-                "Competence": competence,
-                "Potential": potential,
-                "Comment": comment,
-            }
-        ]
-    )
+    new_row = {
+        "age_group": age_group,
+        "player": player,
+        "date": str(date),
+        "technical": technical,
+        "physical": physical,
+        "competence": competence,
+        "potential": potential,
+        "comment": comment,
+    }
 
-    df = pd.concat([df, new_row], ignore_index=True)
-
-    os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
-    df.to_csv(FILE_PATH, index=False)
+    supabase.table("player_records").insert(new_row).execute()
 
     st.success("Entry saved")
+    st.rerun()  # refresh data instantly
 
+# -------------------------
+# DISPLAY + EDIT DATA
+# -------------------------
 st.subheader("Raw Saved Data")
+
 if df.empty:
     st.info("No entries saved yet.")
 else:
-    editable_df = df.copy()
-    if "Date" in editable_df.columns:
-        editable_df["Date"] = pd.to_datetime(editable_df["Date"], errors="coerce").dt.date
-
     edited_df = st.data_editor(
-        editable_df,
+        df[DISPLAY_COLUMNS],
         use_container_width=True,
         num_rows="dynamic",
         column_config={
-            "Age Group": st.column_config.SelectboxColumn(
-                "Age Group",
-                options=["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"],
-            ),
+            "Age Group": st.column_config.SelectboxColumn("Age Group", options=AGE_GROUPS),
             "Technical": st.column_config.SelectboxColumn("Technical", options=SCORE_OPTIONS),
             "Physical": st.column_config.SelectboxColumn("Physical", options=SCORE_OPTIONS),
             "Competence": st.column_config.SelectboxColumn("Competence", options=SCORE_OPTIONS),
@@ -88,11 +117,22 @@ else:
         key="raw_data_editor",
     )
 
+    # -------------------------
+    # SAVE EDITED DATA
+    # -------------------------
     if st.button("Save Table Changes"):
-        if "Date" in edited_df.columns:
-            edited_df["Date"] = pd.to_datetime(edited_df["Date"], errors="coerce").dt.date
+        for _, row in edited_df.iterrows():
+            supabase.table("player_records").update({
+                "age_group": row["Age Group"],
+                "player": row["Player"],
+                "date": str(row["Date"]),
+                "technical": int(row["Technical"]),
+                "physical": int(row["Physical"]),
+                "competence": int(row["Competence"]),
+                "potential": int(row["Potential"]),
+                "comment": row["Comment"],
+            }).eq("id", int(row["id"])).execute()
 
-        edited_df = edited_df.reindex(columns=COLUMNS)
-        os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
-        edited_df.to_csv(FILE_PATH, index=False)
-        st.success("Raw saved data updated")
+        st.success("Data updated")
+        st.rerun()
+
