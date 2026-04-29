@@ -8,7 +8,7 @@ SCORE_OPTIONS = list(range(0, 11))
 COLUMNS = [
     "Age Group",
     "Player",
-    "Date",
+    "Month",
     "Technical",
     "Physical",
     "Competence",
@@ -30,8 +30,10 @@ with st.form("entry_form"):
         ["U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U18", "Dev"],
     )
     player = st.text_input("Player Name")
-    date = st.date_input("Date")
-
+    month = st.selectbox(
+        "Month",
+        ["August", "September", "October", "November", "December", "January", "February", "March", "April"],
+    )
     technical = st.select_slider("Technical", options=SCORE_OPTIONS, value=0)
     physical = st.select_slider("Physical", options=SCORE_OPTIONS, value=0)
     competence = st.select_slider("Competence", options=SCORE_OPTIONS, value=0)
@@ -46,7 +48,7 @@ if submit:
             {
                 "Age Group": age_group,
                 "Player": player,
-                "Date": date,
+                "Month": month,
                 "Technical": technical,
                 "Physical": physical,
                 "Competence": competence,
