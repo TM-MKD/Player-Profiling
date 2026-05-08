@@ -5,7 +5,7 @@ import streamlit as st
 from supabase import Client, create_client
 
 FILE_PATH = "data/records.csv"
-SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "player_profiles")
+SUPABASE_TABLE = st.secrets.get("SUPABASE_TABLE", os.getenv("SUPABASE_TABLE", "player_profiles"))
 SCORE_OPTIONS = list(range(0, 11))
 COLUMNS = [
     "Age Group",
@@ -21,8 +21,8 @@ COLUMNS = [
 
 @st.cache_resource(show_spinner=False)
 def get_supabase_client() -> Client | None:
-    supabase_url = os.getenv("https://cyjfitowmanqfgkuocsa.supabase.co")
-    supabase_key = os.getenv("sb_secret_2FoxgM9-JOoT3zhotmWwgA_6ZD5lpAW")
+    supabase_url = st.secrets.get("SUPABASE_URL", os.getenv("SUPABASE_URL"))
+    supabase_key = st.secrets.get("SUPABASE_ANON_KEY", os.getenv("SUPABASE_ANON_KEY"))
 
     if not supabase_url or not supabase_key:
         return None
