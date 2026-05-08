@@ -2,8 +2,10 @@ import os
 
 import pandas as pd
 import streamlit as st
+from supabase import Client, create_client
 
 FILE_PATH = "data/records.csv"
+SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "player_profiles")
 SCORE_OPTIONS = list(range(0, 11))
 COLUMNS = [
     "Age Group",
@@ -15,6 +17,45 @@ COLUMNS = [
     "Potential",
     "Comment",
 ]
+
+
+@st.cache_resource(show_spinner=False)
+def get_supabase_client() -> Client | None:
+    supabase_url = os.getenv("https://cyjfitowmanqfgkuocsa.supabase.co")
+    supabase_key = os.getenv("sb_secret_2FoxgM9-JOoT3zhotmWwgA_6ZD5lpAW")
+
+    if not supabase_url or not supabase_key:
+        return None
+
+    return create_client(supabase_url, supabase_key)
+
+
+def save_to_supabase(row: dict) -> tuple[bool, str]:
+    client = get_supabase_client()
+
+    if client is None:
+        return (
+            False,
+            "Supabase not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to connect cloud storage.",
+        )
+
+    payload = {
+        "age_group": row["Age Group"],
+        "player": row["Player"],
+        "month": row["Month"],
+        "technical": row["Technical"],
+        "physical": row["Physical"],
+        "competence": row["Competence"],
+        "potential": row["Potential"],
+        "comment": row["Comment"],
+    }
+
+    try:
+        client.table(SUPABASE_TABLE).insert(payload).execute()
+        return True, "Saved to Supabase."
+    except Exception as exc:
+        return False, f"Could not save to Supabase: {exc}"
+
 
 st.title("Manual Data Entry")
 
@@ -43,35 +84,37 @@ with st.form("entry_form"):
     submit = st.form_submit_button("Save Entry")
 
 if submit:
-    new_row = pd.DataFrame(
-        [
-            {
-                "Age Group": age_group,
-                "Player": player,
-                "Month": month,
-                "Technical": technical,
-                "Physical": physical,
-                "Competence": competence,
-                "Potential": potential,
-                "Comment": comment,
-            }
-        ]
-    )
+    row = {
+        "Age Group": age_group,
+        "Player": player,
+        "Month": month,
+        "Technical": technical,
+        "Physical": physical,
+        "Competence": competence,
+        "Potential": potential,
+        "Comment": comment,
+    }
 
+    new_row = pd.DataFrame([row])
     df = pd.concat([df, new_row], ignore_index=True)
 
     os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
     df.to_csv(FILE_PATH, index=False)
 
-    st.success("Entry saved")
+    st.success("Entry saved locally")
+
+    saved_remote, remote_message = save_to_supabase(row)
+    if saved_remote:
+        st.success(remote_message)
+    else:
+        st.warning(remote_message)
 
 st.subheader("Raw Saved Data")
 if df.empty:
     st.info("No entries saved yet.")
-    editable_df = df.copy()
 else:
     edited_df = st.data_editor(
-        editable_df,
+        df,
         use_container_width=True,
         num_rows="dynamic",
         column_config={
@@ -92,7 +135,6 @@ else:
     )
 
     if st.button("Save Table Changes"):
-       
         edited_df = edited_df.reindex(columns=COLUMNS)
         os.makedirs(os.path.dirname(FILE_PATH), exist_ok=True)
         edited_df.to_csv(FILE_PATH, index=False)
