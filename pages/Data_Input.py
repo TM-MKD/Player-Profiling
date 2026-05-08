@@ -1,8 +1,10 @@
 import os
+from urllib.parse import urlparse
 
 import pandas as pd
 import streamlit as st
 from supabase import Client, create_client
+
 
 FILE_PATH = "data/records.csv"
 SUPABASE_TABLE = st.secrets.get("SUPABASE_TABLE", os.getenv("SUPABASE_TABLE", "player_profiles"))
@@ -19,9 +21,27 @@ COLUMNS = [
 ]
 
 
+def normalize_supabase_url(raw_url: str | None) -> str | None:
+    if not raw_url:
+        return None
+
+    cleaned = raw_url.strip().rstrip("/")
+    if not cleaned:
+        return None
+
+    parsed = urlparse(cleaned)
+    if "supabase.com" in parsed.netloc and "/dashboard/project/" in parsed.path:
+        project_ref = parsed.path.split("/dashboard/project/", maxsplit=1)[-1].split("/", maxsplit=1)[0]
+        if project_ref:
+            return f"https://{project_ref}.supabase.co"
+
+    return cleaned
+
+
 @st.cache_resource(show_spinner=False)
 def get_supabase_client() -> Client | None:
-    supabase_url = st.secrets.get("SUPABASE_URL", os.getenv("SUPABASE_URL"))
+    raw_supabase_url = st.secrets.get("SUPABASE_URL", os.getenv("SUPABASE_URL"))
+    supabase_url = normalize_supabase_url(raw_supabase_url)
     supabase_key = st.secrets.get("SUPABASE_ANON_KEY", os.getenv("SUPABASE_ANON_KEY"))
 
     if not supabase_url or not supabase_key:
@@ -36,7 +56,8 @@ def save_to_supabase(row: dict) -> tuple[bool, str]:
     if client is None:
         return (
             False,
-            "Supabase not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to connect cloud storage.",
+            "Supabase not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to connect cloud storage. "
+            "If you pasted a dashboard URL, use the project API URL (https://<project-ref>.supabase.co).",
         )
 
     payload = {
